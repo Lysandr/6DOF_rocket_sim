@@ -1,33 +1,36 @@
 %% Rocket Powered Vehicle Simulation Environment
 % Padraig Lysandrou March 8th, 2019
 
-
-
 clc; close all; clear all;
+m_dry = 90.7 / 2;
+m_wet = 90.7 + m_dry;
+Thrust_mag = 4448.2216;
 
 statedim = 13;
-dt = 0.01;
-t = 0:dt:160;
+dt = 0.1;
+T = 200;
+t = 0:dt:T;
 npoints = length(t);
 
-veh_r = 0.3;
-veh_h = 1;
-m_dry = 200;
-m_wet = 300;
-g0 = 9.81; p.g = [0 0 -g0].';
+veh_r = 0.3;            % vehicle radius
+veh_h = 1;              % vehicle height
+
+g0 = 9.81;
+p.g = [0 0 -g0].';
 Ic = diag([(0.5*(m_wet*veh_h*veh_h) + 0.25*(m_wet*veh_r*veh_r)) ...
     (0.5*(m_wet*veh_h*veh_h) + 0.25*(m_wet*veh_r*veh_r)) 0.5*m_wet*veh_r*veh_r]);
 p.Ic = Ic;
-Isp = 230;
-Thrust_mag = 4000;
+Isp = 205;
 p.mdot = Thrust_mag/(g0 * Isp);
-p.T_B = [0 0.1 Thrust_mag].';
+p.T_B = [0 0 Thrust_mag].';
 p.r_E_COM = [0 0 -veh_h/2];
+p.Cd = 0.75;
+p.Aref = pi*(0.1588^2); % 12.5 in diameter
 
 f_dot = @(t_in,state_in,param) dynamics(t_in,state_in,param);
 vehicle_state = zeros(13,npoints);
 
-% sigma_0 = [(sind(1/2))/cosd(1/2) 0 0].';
+% sigma_0 = [(sind(1/2)/(1+cosd(1/2))) 0 0].';
 sigma_0 = [0 0 0].';
 vehicle_state(1,1) = m_wet;
 vehicle_state(8:10,1) = sigma_0;
@@ -45,6 +48,11 @@ for i = 1:npoints-1
        p.mdot = 0;
        p.T_B = [0 0 0].';
     end
+    
+    % Naive, but update the inertia matrix...
+    Ic = diag([(0.5*(m*veh_h*veh_h) + 0.25*(m*veh_r*veh_r)) ...
+        (0.5*(m*veh_h*veh_h) + 0.25*(m*veh_r*veh_r)) 0.5*m*veh_r*veh_r]);
+    p.Ic = Ic;
     
     % Update exogenous torques
     L =  zeros(3,1);  p.L = L;
@@ -70,42 +78,48 @@ v_N =       vehicle_state(5:7,:);
 sigma_BN =  vehicle_state(8:10,:);
 omega_BN =  vehicle_state(11:13,:);
 
+% figure; plot(t,m); grid on; hold off; title('Mass over time')
+% xlabel('Time seconds'); ylabel('Mass, kg')
+% 
+% figure; plot3(x_N(1,:),x_N(2,:),x_N(3,:));
+% grid on; hold off; %axis equal;
+% xlabel('x'); ylabel('y'); zlabel('z')
+% title('Position vs Time');
+% 
+% figure;
+% subplot(3,1,1); plot(t,x_N(1,:)); ylabel('x pos'); xlabel('time, s');
+% subplot(3,1,2); plot(t,x_N(2,:)); ylabel('y pos'); xlabel('time, s');
+% subplot(3,1,3); plot(t,x_N(3,:)); ylabel('z pos'); xlabel('time, s');
+% title('Position vs Time'); hold off;
+% 
+% figure;
+% subplot(3,1,1); plot(t,v_N(1,:)); ylabel('x vel'); xlabel('time, s');
+% subplot(3,1,2); plot(t,v_N(2,:)); ylabel('y vel'); xlabel('time, s');
+% subplot(3,1,3); plot(t,v_N(3,:)); ylabel('z vel'); xlabel('time, s');
+% title('Velocity vs Time'); hold off;
+% 
+% figure;
+% subplot(3,1,1); plot(t,sigma_BN(1,:)); ylabel('\sigma_1'); xlabel('time, s');
+% subplot(3,1,2); plot(t,sigma_BN(2,:)); ylabel('\sigma_2'); xlabel('time, s');
+% subplot(3,1,3); plot(t,sigma_BN(3,:)); ylabel('\sigma_3'); xlabel('time, s');
+% title('Sigma MRP vs Time'); hold off;
+% 
+% figure;
+% subplot(3,1,1); plot(t,omega_BN(1,:)); ylabel('\omega_1'); xlabel('time, s');
+% subplot(3,1,2); plot(t,omega_BN(2,:)); ylabel('\omega_2'); xlabel('time, s');
+% subplot(3,1,3); plot(t,omega_BN(3,:)); ylabel('\omega_3'); xlabel('time, s');
+% title('Omega vs Time'); hold off;
 
-figure; plot(t,m); grid on; hold off; title('Mass over time')
-xlabel('Time seconds'); ylabel('Mass, kg')
-
-figure; plot3(x_N(1,:),x_N(2,:),x_N(3,:));
-grid on; hold off; axis equal;
-xlabel('x'); ylabel('y'); zlabel('z')
-title('Position vs Time');
 
 figure;
-subplot(3,1,1); plot(t,x_N(1,:)); ylabel('x pos'); xlabel('time, s');
-subplot(3,1,2); plot(t,x_N(2,:)); ylabel('y pos'); xlabel('time, s');
-subplot(3,1,3); plot(t,x_N(3,:)); ylabel('z pos'); xlabel('time, s');
-title('Position vs Time'); hold off;
-
-figure;
-subplot(3,1,1); plot(t,v_N(1,:)); ylabel('x vel'); xlabel('time, s');
-subplot(3,1,2); plot(t,v_N(2,:)); ylabel('y vel'); xlabel('time, s');
-subplot(3,1,3); plot(t,v_N(3,:)); ylabel('z vel'); xlabel('time, s');
-title('Velocity vs Time'); hold off;
-
-figure;
-subplot(3,1,1); plot(t,sigma_BN(1,:)); ylabel('\sigma_1'); xlabel('time, s');
-subplot(3,1,2); plot(t,sigma_BN(2,:)); ylabel('\sigma_2'); xlabel('time, s');
-subplot(3,1,3); plot(t,sigma_BN(3,:)); ylabel('\sigma_3'); xlabel('time, s');
-title('Sigma MRP vs Time'); hold off;
-
-figure;
-subplot(3,1,1); plot(t,omega_BN(1,:)); ylabel('\omega_1'); xlabel('time, s');
-subplot(3,1,2); plot(t,omega_BN(2,:)); ylabel('\omega_2'); xlabel('time, s');
-subplot(3,1,3); plot(t,omega_BN(3,:)); ylabel('\omega_3'); xlabel('time, s');
-title('Omega vs Time'); hold off;
+subplot(3,1,1); plot(t,x_N(3,:)); ylabel('z pos'); xlabel('time, s');
+title('Z position (m) vs Time'); grid on;
+subplot(3,1,2); plot(t,v_N(3,:)); ylabel('z vel'); xlabel('time, s');
+title('Z velocity (m/s) vs Time'); grid on;
+subplot(3,1,3); plot(t,m);
+title('Mass vs Time (kg)'); grid on;
 
 
 
-
-
-
-
+apogee_km = max(x_N(3,:))/1000
+max_v_mph = max(v_N(3,:))*2.23694

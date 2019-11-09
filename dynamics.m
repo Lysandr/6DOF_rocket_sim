@@ -18,24 +18,41 @@ function f_x = dynamics(~,state_in,p)
 
     % Mass depletion dynamics
     m_dot = -p.mdot;
-
     % Velocity -- Inertial
     x_dot = v_N;
-
-    % Acceleration -- Inertial
-    % (p.mu/r^3)*r_v
-    v_dot = ((MRP2C(sigma_BN).'*Thrust_B)/m) + p.g; % - ((0.5*v_N*v_N.'*rho*p.Cd*p.A)/m)
-
-    % MRP integration, remember to perform norm check on this badboi: 3X1
-    sigma_dot = (0.25.*((1 -(sigma_BN.'*sigma_BN))*eye(3) + 2*skew(sigma_BN.') ...
+    
+    %% Acceleration
+    omega_E = [0 0 7.29211505392569e-05].'; % equatorial rotation of earth
+    H = 7250;                       % m
+    rho_naught = 1.225;             % kg/m^3
+    A = p.Aref;                     % m^2
+    % make this dependant upon the MRP at some point 
+    r = norm(x_N) + 6371000;
+    Re = 6371000;
+    vatm = v_N - skew((Re/r)*omega_E)*x_N;
+    % taking care if singular cases
+    if r-Re >= 0
+        rho = rho_naught*exp(-(r-Re)/H);
+    else
+        rho = 0;
+    end
+    Cd = p.Cd;
+    v = norm(vatm) + 1E-12;
+    v_hat = vatm./v;
+    q = (rho*v*v)/2;
+    a_drag = -(q*Cd*A*v_hat)/m;
+    v_dot = ((MRP2C(sigma_BN).'*Thrust_B)/m) + p.g + a_drag;
+    
+    %% MRP integration, remember to perform norm check on this badboi: 3X1
+    sigma_dot = (0.25.*((1 -(sigma_BN.'*sigma_BN))*eye(3) + 2*skew(sigma_BN) ...
         + (2*sigma_BN*(sigma_BN.'))))*omega_BN;
-    
     % Angular Rate Integration
-    omega_dot = (-skew(omega_BN)*(Ic*omega_BN)) + Ic\(skew(p.r_E_COM)*Thrust_B) ...
-        + Ic\p.L;
-    
+    omega_dot = Ic\((-skew(omega_BN)*(Ic*omega_BN)) + (skew(p.r_E_COM)*Thrust_B) ...
+        + p.L);
     % Send out the derivative
     f_x = [m_dot x_dot.' v_dot.' sigma_dot.' omega_dot.'].'; 
+    
+    
 end
 
 
